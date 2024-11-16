@@ -1,0 +1,182 @@
+<!-- src/main/resources/templates/index.html -->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>地图导航系统</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        #mapCanvas {
+            border: 1px solid #ccc;
+            margin: 20px 0;
+        }
+        .control-panel {
+            margin-bottom: 20px;
+        }
+        .result-panel {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #eee;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>地图导航系统</h1>
+
+    <div class="control-panel">
+        <input type="file" id="mapFile" accept=".json">
+        <button onclick="uploadMap()">加载地图</button>
+        <select id="startPoint">
+            <option value="">选择起点</option>
+        </select>
+        <select id="endPoint">
+            <option value="">选择终点</option>
+        </select>
+        <button onclick="calculateRoute()">规划路径</button>
+        <button onclick="clearRoute()">清除</button>
+    </div>
+
+    <canvas id="mapCanvas" width="800" height="600"></canvas>
+
+    <div id="resultPanel" class="result-panel"></div>
+</div>
+
+<script>
+    let mapData = null;
+    let currentPath = null;
+    const canvas = document.getElementById('mapCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function uploadMap() {
+        const file = document.getElementById('mapFile').files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        fetch('/upload', {
+            method: 'POST',
+            body: formData
+        })
+            .then(response => response.text())
+            .then(result => {
+                alert(result);
+                // 读取并解析地图数据
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    mapData = JSON.parse(e.target.result);
+                    updatePointSelects();
+                    drawMap();
+                };
+                reader.readAsText(file);
+            })
+            .catch(error => alert('上传失败: ' + error));
+    }
+
+    function updatePointSelects() {
+        const points = Object.keys(mapData.points);
+        const startSelect = document.getElementById('startPoint');
+        const endSelect = document.getElementById('endPoint');
+
+        startSelect.innerHTML = '<option value="">选择起点</option>';
+        endSelect.innerHTML = '<option value="">选择终点</option>';
+
+        points.forEach(point => {
+            const pointData = mapData.points[point];
+            const text = pointData.name || point;
+
+            startSelect.add(new Option(text, point));
+            endSelect.add(new Option(text, point));
+        });
+    }
+
+    function drawMap() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // 绘制道路
+        mapData.roads.forEach(road => {
+            const start = mapData.points[road.start];
+            const end = mapData.points[road.end];
+
+            ctx.beginPath();
+            ctx.moveTo(start.x, start.y);
+            ctx.lineTo(end.x, end.y);
+            ctx.strokeStyle = road.type === '主干道' ? '#666' : '#999';
+            ctx.lineWidth = road.type === '主干道' ? 3 : 2;
+            ctx.stroke();
+        });
+
+        // 绘制站点
+        Object.entries(mapData.points).forEach(([id, point]) => {
+            ctx.beginPath();
+            ctx.arc(point.x, point.y, 5, 0, Math.PI * 2);
+            ctx.fillStyle = point.lines ? '#0066FF' : '#666';
+            ctx.fill();
+
+            // 绘制站点名称
+            ctx.fillStyle = '#000';
+            ctx.font = '12px Arial';
+            ctx.fillText(point.name || id, point.x + 8, point.y - 8);
+        });
+
+        // 绘制当前路径
+        if (currentPath) {
+            ctx.beginPath();
+            ctx.strokeStyle = '#FF0000';
+            ctx.lineWidth = 3;
+
+            for (let i = 0; i < currentPath.length - 1; i++) {
+                const start = mapData.points[currentPath[i]];
+                const end = mapData.points[currentPath[i + 1]];
+                ctx.moveTo(start.x, start.y);
+                ctx.lineTo(end.x, end.y);
+            }
+
+            ctx.stroke();
+        }
+    }
+
+    function calculateRoute() {
+        const startPoint = document.getElementById('startPoint').value;
+        const endPoint = document.getElementById('endPoint').value;
+
+        if (!startPoint || !endPoint) {
+            alert('请选择起点和终点');
+            return;
+        }
+
+        fetch('/route', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                startPoint: startPoint,
+                endPoint: endPoint
+            })
+        })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    currentPath = result.path;
+                    drawMap();
+
+                    // 显示路径信息
+                    const resultPanel = document.getElementById('resultPanel');
+                    resultPanel.innerHTML = `
+                        <h3>规划结果</h3>
+                        <p>总距离: ${result.totalDistance.toFixed(2)}</p>
+                        <p>路径描述:</p>
+                        <ul>
+                            ${result.routeDescription.map(desc => `<li>${desc}</li>`).join('')}
+                        </ul>
+                    `;
+                } else {
+                    alert(result.message);
+                }
+            })
+            .catch(error => alert('路径计算失败: ' + error));
+    }
+</script>
+</body>
+</html>
