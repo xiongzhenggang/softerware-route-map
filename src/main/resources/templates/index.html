@@ -1,0 +1,342 @@
+<!-- src/main/resources/templates/index.html -->
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能地图导航系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        .file-upload {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: rgba(79, 172, 254, 0.1);
+            color: #4facfe;
+            border-radius: 5px;
+            cursor: pointer;
+            text-align: center;
+            backdrop-filter: blur(5px);
+        }
+
+        .file-upload input[type="file"] {
+            display: none;
+        }
+
+        .file-name {
+            color: #ffff;
+            font-size: 1rem;
+            overflow: hidden; /* 隐藏超出的内容 */
+            text-overflow: ellipsis; /* 超出部分显示省略号 */
+        }
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1a1f25 0%, #101418 100%);
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 2rem;
+            text-align: center;
+            background: linear-gradient(90deg, #00f2fe 0%, #4facfe 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px rgba(79, 172, 254, 0.5);
+        }
+
+        .control-panel {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .union-class {
+            background: rgba(79, 172, 254, 0.1);
+            border: 1px solid rgba(79, 172, 254, 0.3);
+            color: #4facfe;
+            padding: 1rem 2rem;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1rem;
+            backdrop-filter: blur(5px);
+        }
+        button {
+            background: rgba(79, 172, 254, 0.1);
+            border: 1px solid rgba(79, 172, 254, 0.3);
+            color: #4facfe;
+            padding: 1rem 2rem;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1rem;
+            backdrop-filter: blur(5px);
+        }
+
+        button:hover {
+            background: rgba(79, 172, 254, 0.2);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(79, 172, 254, 0.2);
+        }
+
+        .result-panel {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 15px;
+            padding: 1.5rem;
+            min-height: 200px;
+            width: 1000px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* 添加科技感动画效果 */
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(79, 172, 254, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(79, 172, 254, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(79, 172, 254, 0); }
+        }
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, #4facfe, #00f2fe);
+            z-index: -1;
+            filter: blur(24px);
+            opacity: 0.13;
+            border-radius: 22px;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            h1 {
+                font-size: 1.8rem;
+            }
+
+            button {
+                padding: 0.8rem 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>智能地图导航系统</h1>
+
+    <div class="control-panel">
+        <!-- 自定义按钮 -->
+        <label class="file-upload">
+            请选择文件
+            <input type="file" id="mapFile" onchange="displayFileName()"  accept=".json"/>
+        </label>
+        <div id="file-name" class="file-name"></div>
+
+        <button  onclick="uploadMap()">加载地图</button>
+        <select id="startPoint" class="union-class">
+            <option value="">选择起点</option>
+        </select>
+        <select id="endPoint" class="union-class">
+            <option value="">选择终点</option>
+        </select>
+        <button  onclick="calculateRoute()">规划路径</button>
+        <button   onclick="clearRoute()">清除</button>
+    </div>
+
+    <canvas id="mapCanvas" width="1000" height="600" class="result-panel"></canvas>
+
+    <div id="resultPanel"  class="result-panel">
+        <!-- 结果将在这里显示 -->
+    </div>
+</div>
+<script>
+    let mapData = null;
+    let currentPath = null;
+    const canvas = document.getElementById('mapCanvas');
+    const ctx = canvas.getContext('2d');
+    // 获取 canvas 中心点
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const topY = 0; // 上顶的位置
+
+    // 放大比例
+    const scale = 1.2;
+
+    // 将 canvas 原点平移到中心点并进行缩放
+    ctx.translate(centerX, centerY);
+    ctx.scale(scale, scale);
+    // 将绘制内容移动回左上角，使其居中
+    ctx.translate(-centerX / scale, -centerY - 80 );
+
+    function displayFileName() {
+        const fileInput = document.getElementById('mapFile');
+        const fileNameDisplay = document.getElementById('file-name');
+
+        if (fileInput.files.length > 0) {
+            fileNameDisplay.textContent = "已选择: " + fileInput.files[0].name;
+        } else {
+            fileNameDisplay.textContent = "";
+        }
+    }
+    function uploadMap() {
+        const file = document.getElementById('mapFile').files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        fetch('/upload', {
+            method: 'POST',
+            body: formData
+        })
+            .then(response => response.text())
+            .then(result => {
+                alert(result);
+                // 读取并解析地图数据
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    mapData = JSON.parse(e.target.result);
+                    updatePointSelects();
+                    drawMap();
+                };
+                reader.readAsText(file);
+            })
+            .catch(error => alert('上传失败: ' + error));
+    }
+
+    function updatePointSelects() {
+        const points = Object.keys(mapData.points);
+        const startSelect = document.getElementById('startPoint');
+        const endSelect = document.getElementById('endPoint');
+
+        startSelect.innerHTML = '<option value="">选择起点</option>';
+        endSelect.innerHTML = '<option value="">选择终点</option>';
+
+        points.forEach(point => {
+            const pointData = mapData.points[point];
+            const text = pointData.name || point;
+
+            startSelect.add(new Option(text, point));
+            endSelect.add(new Option(text, point));
+        });
+    }
+
+    function drawMap() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // 绘制道路
+        mapData.roads.forEach(road => {
+            const start = mapData.points[road.start];
+            const end = mapData.points[road.end];
+
+            ctx.beginPath();
+            ctx.moveTo(start.x, start.y);
+            ctx.lineTo(end.x, end.y);
+            ctx.strokeStyle = road.type === '主干道' ? '#999' : '#666';
+            ctx.lineWidth = road.type === '主干道' ? 9 : 6;
+            ctx.stroke();
+        });
+
+        // 绘制站点
+        Object.entries(mapData.points).forEach(([id, point]) => {
+            ctx.beginPath();
+            ctx.arc(point.x , point.y, 6, 0, Math.PI * 2);
+            ctx.fillStyle = point.line ? '#0066FF' : '#666';
+            ctx.fill();
+
+            // 绘制站点名称
+            ctx.fillStyle = '#fff';
+            ctx.font = '10px Arial';
+            ctx.fillText(point.name || id, point.x + 8, point.y - 8);
+        });
+
+        // 绘制当前路径
+        if (currentPath) {
+            ctx.beginPath();
+            ctx.strokeStyle = '#FF0000';
+            ctx.lineWidth = 6;
+
+            for (let i = 0; i < currentPath.length - 1; i++) {
+                const start = mapData.points[currentPath[i]];
+                const end = mapData.points[currentPath[i + 1]];
+                ctx.moveTo(start.x, start.y);
+                ctx.lineTo(end.x, end.y);
+            }
+
+            ctx.stroke();
+        }
+    }
+    // 清除所有
+    function clearRoute() {
+        console.log('清除所有');
+        // 刷新页面，重置所有输入框
+        location.reload();
+    }
+    function calculateRoute() {
+        const startPoint = document.getElementById('startPoint').value;
+        const endPoint = document.getElementById('endPoint').value;
+
+        if (!startPoint || !endPoint) {
+            alert('请选择起点和终点');
+            return;
+        }
+
+        fetch('/route', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                startPoint: startPoint,
+                endPoint: endPoint
+            })
+        })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    currentPath = result.path;
+                    drawMap();
+
+                    // 显示路径信息
+                    const resultPanel = document.getElementById('resultPanel');
+                    resultPanel.innerHTML = `
+                        <h3>规划结果</h3>
+                        <p>总距离: ${result.totalDistance.toFixed(2)}</p>
+                        <p>路径描述:</p>
+                        <ul>
+                            ${result.routeDescription.map(desc => `<li>${desc}</li>`).join('')}
+                        </ul>
+                    `;
+                } else {
+                    alert(result.message);
+                }
+            })
+            .catch(error => alert('路径计算失败: ' + error));
+    }
+</script>
+</body>
+</html>
