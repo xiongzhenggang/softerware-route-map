@@ -32,7 +32,6 @@ public class NavigationService {
         this.mapData = data;
         buildGraph();
     }
-
     private void buildGraph() {
         graph = new SimpleWeightedGraph<>(DefaultWeightedEdge.class);
         // 添加顶点
@@ -48,24 +47,20 @@ public class NavigationService {
 
     public RouteResult calculateRoute(String startPoint, String endPoint) {
         RouteResult result = new RouteResult();
-
         try {
             DijkstraShortestPath<String, DefaultWeightedEdge> dijkstra =
                     new DijkstraShortestPath<>(graph);
             GraphPath<String, DefaultWeightedEdge> path =
                     dijkstra.getPath(startPoint, endPoint);
-
             if (path == null) {
                 result.setSuccess(false);
                 result.setMessage("未找到可行路径");
                 return result;
             }
-
             // 获取路径顶点
             List<String> vertices = path.getVertexList();
             result.setPath(vertices);
             result.setTotalDistance(path.getWeight());
-
             // 生成路径描述
             List<String> routeDescription = new ArrayList<>();
             for (int i = 0; i < vertices.size() - 1; i++) {
@@ -73,14 +68,12 @@ public class NavigationService {
                 String next = vertices.get(i + 1);
                 MapPoint currentPoint = mapData.getPoints().get(current);
                 MapPoint nextPoint = mapData.getPoints().get(next);
-
                 String description = String.format("从 %s 到 %s",
                         currentPoint.getName() != null ? currentPoint.getName() : current,
                         nextPoint.getName() != null ? nextPoint.getName() : next
                 );
                 routeDescription.add(description);
             }
-
             result.setRouteDescription(routeDescription);
             result.setSuccess(true);
 

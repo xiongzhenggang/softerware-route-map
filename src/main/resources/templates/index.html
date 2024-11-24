@@ -299,12 +299,10 @@
     function calculateRoute() {
         const startPoint = document.getElementById('startPoint').value;
         const endPoint = document.getElementById('endPoint').value;
-
         if (!startPoint || !endPoint) {
             alert('请选择起点和终点');
             return;
         }
-
         fetch('/route', {
             method: 'POST',
             headers: {
@@ -314,13 +312,10 @@
                 startPoint: startPoint,
                 endPoint: endPoint
             })
-        })
-            .then(response => response.json())
-            .then(result => {
+        }).then(response => response.json()).then(result => {
                 if (result.success) {
                     currentPath = result.path;
                     drawMap();
-
                     // 显示路径信息
                     const resultPanel = document.getElementById('resultPanel');
                     resultPanel.innerHTML = `
